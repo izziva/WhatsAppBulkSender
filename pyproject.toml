@@ -1,0 +1,14 @@
+[project]
+name = "whatsapp-automation-bot"
+version = "1.0.0"
+description = "A Python script to automate sending WhatsApp messages to a list of numbers."
+dependencies = [
+    "selenium",
+    "webdriver-manager",
+    "jaydebeapi",
+    "rich",
+]
+
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
