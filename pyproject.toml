@@ -7,6 +7,13 @@ dependencies = [
     "webdriver-manager",
     "jaydebeapi",
     "rich",
+    "customtkinter",
+    "certifi",
+    "urllib3",
+    "websocket-client",
+    "typing-extensions",
+    "requests",
+    "python-dotenv",
 ]
 
 [build-system]

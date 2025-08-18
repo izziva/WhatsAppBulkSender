@@ -61,24 +61,30 @@ def _load_numbers_from_db() -> list[str]:
 
     return list(numbers)
 
-def read_message() -> str:
+def read_message(gui_mode: bool = False) -> str:
     """Reads message from file or user input, and caches it."""
     if os.path.exists(MESSAGE_FILE):
         with open(MESSAGE_FILE, "r", encoding="utf8") as file:
             message = file.read()
-        print("[yellow]\nThis is your message:[/yellow]")
-        print(f"[green]{message}[/green]")
-        if Prompt.ask("[yellow]Do you want to edit the message?[/yellow]", choices=["y", "n"]) == "y":
-            message = read_multiline("Please enter your new message (Press Enter twice to finish):")
-            with open(MESSAGE_FILE, "w", encoding="utf8") as file:
-                file.write(message)
+        if not gui_mode:
+            print("[yellow]\nThis is your message:[/yellow]")
+            print(f"[green]{message}[/green]")
+            if Prompt.ask("[yellow]Do you want to edit the message?[/yellow]", choices=["y", "n"]) == "y":
+                message = read_multiline("Please enter your new message (Press Enter twice to finish):")
+                save_message(message)
     else:
-        message = read_multiline("Please enter your message (Press Enter twice to finish):")
-        with open(MESSAGE_FILE, "w", encoding="utf8") as file:
-            file.write(message)
+        message = ""
+        if not gui_mode:
+            message = read_multiline("Please enter your message (Press Enter twice to finish):")
+            save_message(message)
     return message
 
-def read_numbers() -> list[str]:
+def save_message(message: str):
+    """Saves the message to the file."""
+    with open(MESSAGE_FILE, "w", encoding="utf8") as file:
+        file.write(message)
+
+def read_numbers(gui_mode: bool = False) -> list[str]:
     """Reads numbers from a file or loads them from the database."""
     numbers = set()
     if os.path.exists(NUMBERS_FILE):
@@ -88,21 +94,22 @@ def read_numbers() -> list[str]:
                 if num:
                     numbers.add(num)
 
-    if not numbers:
-        if Prompt.ask("[yellow]No numbers found in 'numbers.txt'. Do you want to load from database?[/yellow]", choices=["y", "n"]) == "y":
-            numbers.update(_load_numbers_from_db())
-    else:
-        if Prompt.ask(f"[yellow]Found {len(numbers)} numbers from the last session. Continue with these numbers?[/yellow]", choices=["y", "n"]) != "y":
-            if Prompt.ask("[yellow]Do you want to reload from database instead?[/yellow]", choices=["y", "n"]) == "y":
-                numbers = set(_load_numbers_from_db())
+    if not gui_mode:
+        if not numbers:
+            if Prompt.ask("[yellow]No numbers found in 'numbers.txt'. Do you want to load from database?[/yellow]", choices=["y", "n"]) == "y":
+                numbers.update(_load_numbers_from_db())
+        else:
+            if Prompt.ask(f"[yellow]Found {len(numbers)} numbers from the last session. Continue with these numbers?[/yellow]", choices=["y", "n"]) != "y":
+                if Prompt.ask("[yellow]Do you want to reload from database instead?[/yellow]", choices=["y", "n"]) == "y":
+                    numbers = set(_load_numbers_from_db())
 
-    if not numbers:
-        print("[red]No numbers to process. Exiting program.[/red]")
-        exit()
+        if not numbers:
+            print("[red]No numbers to process. Exiting program.[/red]")
+            exit()
 
     return list(numbers)
 
-def update_numbers_file(numbers_to_send: list[str]):
-    """Saves the remaining list of numbers to the file."""
+def save_numbers(numbers_to_send: list[str]):
+    """Saves the list of numbers to the file."""
     with open(NUMBERS_FILE, "w") as f:
         f.write(",".join(numbers_to_send))
