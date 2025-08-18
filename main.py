@@ -1,11 +1,13 @@
+import argparse
 from rich import print
-from whatsapp_sender.data_manager import read_message, read_numbers, update_numbers_file
+
+from whatsapp_sender.data_manager import read_message, read_numbers, save_numbers
 from whatsapp_sender.driver_utils import create_driver
 from whatsapp_sender.bot import WhatsAppBot
 from whatsapp_sender.utils import wait_until_work_time
 
-def main():
-    """Main function to run the WhatsApp bot."""
+def run_cli():
+    """Function to run the WhatsApp bot in CLI mode."""
     print("[blue]**********************************************************[/blue]")
     print("[blue]*****      WhatsApp Automation Tool Refactored     ******[/blue]")
     print("[blue]**********************************************************[/blue]")
@@ -36,14 +38,12 @@ def main():
             success = bot.send_message(number, message)
 
             if success:
-                # If sent, remove from the list of numbers to be saved for next time
                 if number in remaining_numbers:
                     remaining_numbers.remove(number)
             else:
                 print(f"[red]Could not send message to {number}. It will be retried next session.[/red]")
 
-            # Save progress after each attempt
-            update_numbers_file(remaining_numbers)
+            save_numbers(remaining_numbers)
 
         print("[green]\nAll numbers have been processed.[/green]")
 
@@ -52,10 +52,33 @@ def main():
     finally:
         if 'bot' in locals() and bot.driver:
             bot.close()
-        # Final save of remaining numbers
         if 'remaining_numbers' in locals():
-            update_numbers_file(remaining_numbers)
+            save_numbers(remaining_numbers)
         print("[blue]Program finished.[/blue]")
+
+def run_gui():
+    """Function to run the WhatsApp bot in GUI mode."""
+    print("[blue]GUI mode is not implemented yet.[/blue]")
+    # I will implement this in the next step
+    from whatsapp_sender.gui import App
+    app = App()
+    app.mainloop()
+
+
+def main():
+    """Main function to parse arguments and run the bot."""
+    parser = argparse.ArgumentParser(description="WhatsApp Automation Tool")
+    parser.add_argument(
+        "--no-gui",
+        action="store_true",
+        help="Run the application in command-line interface (CLI) mode.",
+    )
+    args = parser.parse_args()
+
+    if args.no_gui:
+        run_cli()
+    else:
+        run_gui()
 
 if __name__ == "__main__":
     main()
