@@ -4,7 +4,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
-from whatsapp_sender.config import USER_DATA_DIR
+from whatsapp_sender.config import settings
 
 def create_driver() -> webdriver.Chrome:
     """Initializes and returns a configured Selenium Chrome WebDriver."""
@@ -15,7 +15,7 @@ def create_driver() -> webdriver.Chrome:
     # Experimental options and arguments for stability and ad-blocking
     options.add_experimental_option("excludeSwitches", ["enable-logging"])
     options.add_argument("--profile-directory=Default")
-    options.add_argument("--user-data-dir=" + USER_DATA_DIR)
+    options.add_argument("--user-data-dir=" + settings.USER_DATA_DIR)
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-gpu")
     options.add_argument("--disable-software-rasterizer")

@@ -2,7 +2,7 @@ import re
 import datetime
 from time import sleep
 from rich import print
-from whatsapp_sender.config import WORK_START_HOUR, WORK_END_HOUR
+from whatsapp_sender.config import settings
 
 def remove_emoji(text: str) -> str:
     """Removes emoji characters from a string."""
@@ -20,9 +20,9 @@ def remove_emoji(text: str) -> str:
 def wait_until_work_time() -> None:
     """Pauses script execution if outside of defined working hours."""
     now = datetime.datetime.now()
-    while now.hour >= WORK_END_HOUR or now.hour < WORK_START_HOUR:
+    while now.hour >= settings.WORK_END_HOUR or now.hour < settings.WORK_START_HOUR:
         print(
-            f"[red]It is not allowed to send messages after {WORK_END_HOUR}:00 and before {WORK_START_HOUR}:00. "
+            f"[red]It is not allowed to send messages after {settings.WORK_END_HOUR}:00 and before {settings.WORK_START_HOUR}:00. "
             "Waiting for unlock...[/red]"
         )
         sleep(600)
