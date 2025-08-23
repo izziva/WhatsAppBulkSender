@@ -2,13 +2,13 @@ import os
 from pathlib import Path
 from rich import print
 from rich.prompt import Prompt
-from whatsapp_sender.config import MESSAGE_FILE, NUMBERS_FILE, DB_FILE, LIB_DIR
+from whatsapp_sender.config import settings
 from whatsapp_sender.utils import read_multiline
 
 def _load_numbers_from_db() -> list[str]:
     """Loads phone numbers from an Access (.mdb) database file."""
-    if not os.path.exists(DB_FILE):
-        print(f"[red]Database file not found at: {DB_FILE}[/red]")
+    if not os.path.exists(settings.DB_FILE):
+        print(f"[red]Database file not found at: {settings.DB_FILE}[/red]")
         return []
 
     try:
@@ -19,9 +19,9 @@ def _load_numbers_from_db() -> list[str]:
         return []
 
     def get_jars():
-        lib_dir = Path(LIB_DIR)
+        lib_dir = Path(settings.LIB_DIR)
         if not lib_dir.exists():
-            print(f"[red]JDBC driver directory not found at: {LIB_DIR}[/red]")
+            print(f"[red]JDBC driver directory not found at: {settings.LIB_DIR}[/red]")
             return []
         return [str(jar) for jar in lib_dir.glob("*.jar")]
 
@@ -37,7 +37,7 @@ def _load_numbers_from_db() -> list[str]:
     try:
         conn = jaydebeapi.connect(
             jclassname="net.ucanaccess.jdbc.UcanaccessDriver",
-            url=f"jdbc:ucanaccess://{DB_FILE}",
+            url=f"jdbc:ucanaccess://{settings.DB_FILE}",
             jars=jars,
         )
         cursor = conn.cursor()
@@ -63,8 +63,8 @@ def _load_numbers_from_db() -> list[str]:
 
 def read_message(gui_mode: bool = False) -> str:
     """Reads message from file or user input, and caches it."""
-    if os.path.exists(MESSAGE_FILE):
-        with open(MESSAGE_FILE, "r", encoding="utf8") as file:
+    if os.path.exists(settings.MESSAGE_FILE):
+        with open(settings.MESSAGE_FILE, "r", encoding="utf8") as file:
             message = file.read()
         if not gui_mode:
             print("[yellow]\nThis is your message:[/yellow]")
@@ -81,14 +81,14 @@ def read_message(gui_mode: bool = False) -> str:
 
 def save_message(message: str):
     """Saves the message to the file."""
-    with open(MESSAGE_FILE, "w", encoding="utf8") as file:
+    with open(settings.MESSAGE_FILE, "w", encoding="utf8") as file:
         file.write(message)
 
 def read_numbers(gui_mode: bool = False) -> list[str]:
     """Reads numbers from a file or loads them from the database."""
     numbers = set()
-    if os.path.exists(NUMBERS_FILE):
-        with open(NUMBERS_FILE, "r") as file:
+    if os.path.exists(settings.NUMBERS_FILE):
+        with open(settings.NUMBERS_FILE, "r") as file:
             for line in file.read().split(","):
                 num = line.strip()
                 if num:
@@ -111,5 +111,5 @@ def read_numbers(gui_mode: bool = False) -> list[str]:
 
 def save_numbers(numbers_to_send: list[str]):
     """Saves the list of numbers to the file."""
-    with open(NUMBERS_FILE, "w") as f:
+    with open(settings.NUMBERS_FILE, "w") as f:
         f.write(",".join(numbers_to_send))

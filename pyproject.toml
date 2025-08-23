@@ -14,6 +14,7 @@ dependencies = [
     "typing-extensions",
     "requests",
     "python-dotenv",
+    "pydantic-settings",
 ]
 
 [build-system]

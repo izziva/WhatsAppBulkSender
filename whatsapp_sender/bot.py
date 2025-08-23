@@ -10,7 +10,7 @@ import random
 from rich import print
 from rich.prompt import Prompt
 
-from whatsapp_sender.config import DEFAULT_TIMEOUT, LOGIN_TIMEOUT
+from whatsapp_sender.config import settings
 from whatsapp_sender.utils import remove_emoji, add_country_code
 
 class WhatsAppBot:
@@ -59,7 +59,7 @@ class WhatsAppBot:
         self.driver.get('https://web.whatsapp.com')
         self.logger.info("Please scan the QR code to log in to WhatsApp Web...")
         try:
-            wait = WebDriverWait(self.driver, timeout=LOGIN_TIMEOUT, poll_frequency=1)
+            wait = WebDriverWait(self.driver, timeout=settings.LOGIN_TIMEOUT, poll_frequency=1)
             wait.until(
                 EC.presence_of_element_located((By.XPATH, "//canvas[@aria-label='Scan me!']"))
             )
@@ -71,7 +71,7 @@ class WhatsAppBot:
             pass # Already logged in or timeout
 
         self.logger.info("QR code scanned (or already logged in). Waiting for main page to load...")
-        WebDriverWait(self.driver, timeout=LOGIN_TIMEOUT, poll_frequency=1).until(
+        WebDriverWait(self.driver, timeout=settings.LOGIN_TIMEOUT, poll_frequency=1).until(
             EC.presence_of_element_located((By.ID, "side"))
         )
         self.logger.info("WhatsApp Web loaded successfully.")
@@ -92,10 +92,6 @@ class WhatsAppBot:
 
         sent = False
         for attempt in range(3):
-            if self.stop_event.is_set():
-                self.logger.info("Stop signal received, aborting send.")
-                return False
-
             self.logger.info(f"Attempt {attempt + 1}/3 to send to {number}...")
             self.driver.get(url)
 
@@ -108,7 +104,7 @@ class WhatsAppBot:
 
             try:
                 send_button_xpath = "//button[.//span[@data-icon='send']]"
-                wait = WebDriverWait(self.driver, timeout=DEFAULT_TIMEOUT, poll_frequency=0.5)
+                wait = WebDriverWait(self.driver, timeout=settings.DEFAULT_TIMEOUT, poll_frequency=0.5)
                 click_btn = wait.until(EC.element_to_be_clickable((By.XPATH, send_button_xpath)))
                 click_btn.click()
                 sleep(2)
@@ -123,6 +119,9 @@ class WhatsAppBot:
 
             except Exception as e:
                 self.logger.error(f"Failed to send on attempt {attempt + 1}: {e}")
+                if self.stop_event.is_set():
+                    self.logger.info("Stop signal received, aborting retries.")
+                    break
                 sleep(3)
 
         return sent

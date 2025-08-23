@@ -2,7 +2,8 @@ import customtkinter as ctk
 import logging
 import queue
 import threading
-from whatsapp_sender.data_manager import read_message, read_numbers, save_message, save_numbers
+from tkinter import messagebox
+from whatsapp_sender.data_manager import read_message, read_numbers, save_message, save_numbers, _load_numbers_from_db
 from whatsapp_sender.bot_wrapper import run_bot_instance
 
 class QueueHandler(logging.Handler):
@@ -39,10 +40,17 @@ class App(ctk.CTk):
         self.numbers_frame = ctk.CTkFrame(self)
         self.numbers_frame.grid(row=1, column=0, padx=10, pady=0, sticky="ew")
         self.numbers_frame.grid_columnconfigure(1, weight=1)
+
         self.numbers_label = ctk.CTkLabel(self.numbers_frame, text="Numbers:")
         self.numbers_label.grid(row=0, column=0, padx=10, pady=10)
+
+        self.numbers_count_label = ctk.CTkLabel(self.numbers_frame, text="Count: 0")
+        self.numbers_count_label.grid(row=1, column=0, padx=10, pady=0)
+
         self.numbers_textbox = ctk.CTkTextbox(self.numbers_frame, height=150)
-        self.numbers_textbox.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+        self.numbers_textbox.grid(row=0, column=1, rowspan=2, padx=10, pady=10, sticky="nsew")
+        self.numbers_textbox.bind("<KeyRelease>", self._update_numbers_count)
+
         numbers = read_numbers(gui_mode=True)
         self.numbers_textbox.insert("1.0", ", ".join(numbers))
 
@@ -57,11 +65,13 @@ class App(ctk.CTk):
         # Button frame
         self.button_frame = ctk.CTkFrame(self)
         self.button_frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
-        self.button_frame.grid_columnconfigure((0, 1), weight=1)
+        self.button_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        self.load_button = ctk.CTkButton(self.button_frame, text="Load Numbers from DB", command=self._load_numbers)
+        self.load_button.grid(row=0, column=0, padx=10, pady=10)
         self.start_button = ctk.CTkButton(self.button_frame, text="Start Sending", command=self.start_bot)
-        self.start_button.grid(row=0, column=0, padx=10, pady=10)
+        self.start_button.grid(row=0, column=1, padx=10, pady=10)
         self.stop_button = ctk.CTkButton(self.button_frame, text="Stop", fg_color="red", command=self.stop_bot, state="disabled")
-        self.stop_button.grid(row=0, column=1, padx=10, pady=10)
+        self.stop_button.grid(row=0, column=2, padx=10, pady=10)
 
         # Setup logging
         self.log_queue = queue.Queue()
@@ -70,6 +80,22 @@ class App(ctk.CTk):
         self.logger = logging.getLogger()
 
         self.after(100, self.process_log_queue)
+        self._update_numbers_count()
+
+    def _load_numbers(self):
+        try:
+            numbers = _load_numbers_from_db()
+            self.numbers_textbox.delete("1.0", "end")
+            self.numbers_textbox.insert("1.0", ", ".join(numbers))
+            self._update_numbers_count()
+            self.logger.info(f"Successfully loaded {len(numbers)} numbers from the database.")
+        except Exception as e:
+            self.logger.error(f"Failed to load numbers from DB: {e}")
+
+    def _update_numbers_count(self, event=None):
+        numbers_str = self.numbers_textbox.get("1.0", "end-1c")
+        numbers = [n.strip() for n in numbers_str.split(",") if n.strip()]
+        self.numbers_count_label.configure(text=f"Count: {len(numbers)}")
 
     def process_log_queue(self):
         try:
@@ -85,6 +111,10 @@ class App(ctk.CTk):
 
     def start_bot(self):
         message = self.message_textbox.get("1.0", "end-1c")
+        if len(message) < 10:
+            messagebox.showinfo("Warning", "Message must be at least 10 characters long.")
+            return
+
         numbers_str = self.numbers_textbox.get("1.0", "end-1c")
         numbers = [n.strip() for n in numbers_str.split(",") if n.strip()]
 
