@@ -1,9 +1,9 @@
 import os
+import re
 from pathlib import Path
 from rich import print
 from rich.prompt import Prompt
 from whatsapp_sender.config import settings
-from whatsapp_sender.utils import read_multiline
 
 def _load_numbers_from_db() -> list[str]:
     """Loads phone numbers from an Access (.mdb) database file."""
@@ -84,12 +84,12 @@ def save_message(message: str):
     with open(settings.MESSAGE_FILE, "w", encoding="utf8") as file:
         file.write(message)
 
-def read_numbers(gui_mode: bool = False) -> list[str]:
+def read_numbers(pathFile: str, gui_mode: bool = False) -> list[str]:
     """Reads numbers from a file or loads them from the database."""
     numbers = set()
-    if os.path.exists(settings.NUMBERS_FILE):
-        with open(settings.NUMBERS_FILE, "r") as file:
-            for line in file.read().split(","):
+    if os.path.exists(pathFile):
+        with open(pathFile, "r") as file:
+            for line in re.split(r',|\n',file.read()):
                 num = line.strip()
                 if num:
                     numbers.add(num)
@@ -109,7 +109,48 @@ def read_numbers(gui_mode: bool = False) -> list[str]:
 
     return list(numbers)
 
-def save_numbers(numbers_to_send: list[str]):
-    """Saves the list of numbers to the file."""
-    with open(settings.NUMBERS_FILE, "w") as f:
-        f.write(",".join(numbers_to_send))
+def save_numbers(pathFile: str, numbers: list[str]) -> None:
+    """Saves a list of numbers to the main numbers file."""
+    with open(pathFile, "w", encoding="utf-8") as f:
+        for number in numbers:
+            f.write(f"{number}\n")
+
+def clear_file(file_path: str):
+    """Svuota il contenuto di un file."""
+    with open(file_path, "w") as f:
+        pass
+
+def append_numbers_to_main_list(numbers_to_add: list[str]):
+    """Aggiunge numeri alla lista principale, evitando duplicati."""
+    if not numbers_to_add:
+        return
+    
+    main_numbers = read_numbers(settings.NUMBERS_FILE, gui_mode=True)
+    
+    # Aggiungi solo numeri non già presenti per evitare duplicati
+    unique_new_numbers = [num for num in numbers_to_add if num not in main_numbers]
+    
+    if not unique_new_numbers:
+        return
+
+    updated_numbers = main_numbers + unique_new_numbers
+    save_numbers(settings.NUMBERS_FILE, updated_numbers)
+
+def read_multiline(prompt: str) -> str:
+    """Reads multiline input from the user until an empty line is entered."""
+    print(f"[yellow]{prompt}[/yellow]")
+    lines = []
+    while True:
+        try:
+            line = input()
+            if line == "" and len(lines)>1 and lines[len(lines) - 1] == "":
+                break
+            lines.append(line)
+        except EOFError:
+            break
+    return "\n".join(lines)
+
+def check_number_invalid(number: str) -> bool:
+    """Checks if a number is invalid by looking for it in the not WhatsApp numbers file."""
+    pattern = re.compile("^[0-9\\-\\+]*$")
+    return pattern.match(number) is None

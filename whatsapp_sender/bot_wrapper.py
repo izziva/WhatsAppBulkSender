@@ -1,9 +1,10 @@
 import logging
 import threading
-from whatsapp_sender.data_manager import read_message, read_numbers, save_numbers
+from whatsapp_sender.data_manager import read_message, read_numbers, save_numbers,check_number_invalid
 from whatsapp_sender.driver_utils import create_driver
 from whatsapp_sender.bot import WhatsAppBot
 from whatsapp_sender.utils import wait_until_work_time
+from whatsapp_sender.config import settings
 
 def run_bot_instance(logger: logging.Logger, stop_event: threading.Event, post_run_callback: callable):
     """
@@ -18,7 +19,7 @@ def run_bot_instance(logger: logging.Logger, stop_event: threading.Event, post_r
             logger.warning("Message is empty. Aborting.")
             return
 
-        numbers_to_send = read_numbers(gui_mode=True)
+        numbers_to_send = read_numbers(settings.NUMBERS_FILE,gui_mode=True)
         total_numbers = len(numbers_to_send)
         logger.info(f"Loaded {total_numbers} numbers to process.")
 
@@ -43,7 +44,13 @@ def run_bot_instance(logger: logging.Logger, stop_event: threading.Event, post_r
                 if stop_event.is_set(): break
 
                 logger.info(f"Processing {idx + 1}/{total_numbers}: {number}")
-
+                if check_number_invalid(number):
+                    logger.warning(f"Number {number} is invalid. Saving to not WhatsApp numbers list.")
+                    save_numbers(settings.NOT_WAT_NUMBERS_FILE, [number])
+                    if number in remaining_numbers:
+                        remaining_numbers.remove(number)
+                    save_numbers(settings.NUMBERS_FILE, remaining_numbers)
+                    continue
                 success = bot.send_message(number, message)
 
                 if success:
@@ -52,7 +59,7 @@ def run_bot_instance(logger: logging.Logger, stop_event: threading.Event, post_r
                 else:
                     logger.warning(f"Could not send message to {number}. It will be retried next session.")
 
-                save_numbers(remaining_numbers)
+                save_numbers(settings.NUMBERS_FILE, remaining_numbers)
 
             logger.info("All numbers have been processed or the process was stopped.")
 
@@ -62,7 +69,7 @@ def run_bot_instance(logger: logging.Logger, stop_event: threading.Event, post_r
             if bot and bot.driver:
                 bot.close()
             if 'remaining_numbers' in locals():
-                save_numbers(remaining_numbers)
+                save_numbers(settings.NUMBERS_FILE, remaining_numbers)
             logger.info("Bot instance finished.")
     finally:
         # This will be called even if the bot logic fails catastrophically

@@ -1,11 +1,34 @@
 import re
+from whatsapp_sender.config import settings
 import datetime
 from time import sleep
 from rich import print
-from whatsapp_sender.config import settings
+from whatsapp_sender.data_manager import read_numbers
+
+def get_failed_counts() -> tuple[int, int]:
+    """
+    Counts the number of lines in the failed_numbers.txt and not_whatsapp_numbers.txt files.
+
+    Returns:
+        A tuple containing the count of failed numbers and not-WhatsApp numbers.
+    """
+    failed_count = 0
+    not_whatsapp_count = 0
+
+    try:
+            failed_count = len(read_numbers(settings.FAILED_NUMBERS_FILE, gui_mode=True))
+    except FileNotFoundError:
+        pass  # File doesn't exist, count is 0
+
+    try:
+            not_whatsapp_count = len(read_numbers(settings.NOT_WAT_NUMBERS_FILE, gui_mode=True))
+    except FileNotFoundError:
+        pass  # File doesn't exist, count is 0
+
+    return failed_count, not_whatsapp_count
 
 def remove_emoji(text: str) -> str:
-    """Removes emoji characters from a string."""
+    """Removes emoji characters from a string and replaces them with a placeholder string."""
     emoji_pattern = re.compile(
         "["
         u"\U0001F600-\U0001F64F"  # emoticons
@@ -15,10 +38,12 @@ def remove_emoji(text: str) -> str:
         "]+",
         flags=re.UNICODE,
     )
-    return emoji_pattern.sub(r'', text)
+    return emoji_pattern.sub(r'[EMOJI]', text)
 
 def wait_until_work_time() -> None:
     """Pauses script execution if outside of defined working hours."""
+    if not settings.USE_WORK_HOUR_BLOCK:
+        return
     now = datetime.datetime.now()
     while now.hour >= settings.WORK_END_HOUR or now.hour < settings.WORK_START_HOUR:
         print(
@@ -41,16 +66,4 @@ def add_country_code(number: str) -> str:
         print(f"[yellow]Number '{number}' seems to be in a local format. Adding +39 prefix.[/yellow]")
         return "+39" + number
 
-def read_multiline(prompt: str) -> str:
-    """Reads multiline input from the user until an empty line is entered."""
-    print(f"[yellow]{prompt}[/yellow]")
-    lines = []
-    while True:
-        try:
-            line = input()
-            if line == "":
-                break
-            lines.append(line)
-        except EOFError:
-            break
-    return "\n".join(lines)
+

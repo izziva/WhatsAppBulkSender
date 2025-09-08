@@ -1,15 +1,16 @@
 import argparse
 from rich import print
 
-from whatsapp_sender.data_manager import read_message, read_numbers, save_numbers
+from whatsapp_sender.data_manager import read_message, read_numbers, save_numbers, check_number_invalid
 from whatsapp_sender.driver_utils import create_driver
 from whatsapp_sender.bot import WhatsAppBot
 from whatsapp_sender.utils import wait_until_work_time
+from whatsapp_sender.config import settings
 
 def run_cli():
     """Function to run the WhatsApp bot in CLI mode."""
     print("[blue]**********************************************************[/blue]")
-    print("[blue]*****      WhatsApp Automation Tool Refactored     ******[/blue]")
+    print("[blue]*****          WhatsApp Automation Tool             ******[/blue]")
     print("[blue]**********************************************************[/blue]")
 
     message = read_message()
@@ -17,7 +18,7 @@ def run_cli():
         print("[red]Message is empty. Exiting program.[/red]")
         return
 
-    numbers_to_send = read_numbers()
+    numbers_to_send = read_numbers(settings.NUMBERS_FILE)
     total_numbers = len(numbers_to_send)
     print(f"[green]Loaded {total_numbers} numbers to process.[/green]")
 
@@ -35,15 +36,22 @@ def run_cli():
 
             print(f"\n[cyan]Processing {idx + 1}/{total_numbers}: {number}[/cyan]")
 
-            success = bot.send_message(number, message)
-
-            if success:
+            if check_number_invalid(number):
+                print(f"[yellow]Number {number} is invalid. Saving to not WhatsApp numbers list.[/yellow]")
+                save_numbers(settings.NOT_WAT_NUMBERS_FILE, [number])
                 if number in remaining_numbers:
                     remaining_numbers.remove(number)
-            else:
+                save_numbers(settings.NUMBERS_FILE, remaining_numbers)
+                continue
+
+            if not bot.send_message(number, message):
                 print(f"[red]Could not send message to {number}. It will be retried next session.[/red]")
 
-            save_numbers(remaining_numbers)
+            if number in remaining_numbers:
+                remaining_numbers.remove(number)
+            
+
+            save_numbers(settings.NUMBERS_FILE, remaining_numbers)
 
         print("[green]\nAll numbers have been processed.[/green]")
 
@@ -53,13 +61,11 @@ def run_cli():
         if 'bot' in locals() and bot.driver:
             bot.close()
         if 'remaining_numbers' in locals():
-            save_numbers(remaining_numbers)
+            save_numbers(settings.NUMBERS_FILE, remaining_numbers)
         print("[blue]Program finished.[/blue]")
 
 def run_gui():
     """Function to run the WhatsApp bot in GUI mode."""
-    print("[blue]GUI mode is not implemented yet.[/blue]")
-    # I will implement this in the next step
     from whatsapp_sender.gui import App
     app = App()
     app.mainloop()
@@ -69,13 +75,13 @@ def main():
     """Main function to parse arguments and run the bot."""
     parser = argparse.ArgumentParser(description="WhatsApp Automation Tool")
     parser.add_argument(
-        "--no-gui",
+        "--nogui",
         action="store_true",
         help="Run the application in command-line interface (CLI) mode.",
     )
     args = parser.parse_args()
 
-    if args.no_gui:
+    if args.nogui:
         run_cli()
     else:
         run_gui()
