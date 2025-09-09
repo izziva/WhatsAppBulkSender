@@ -52,10 +52,10 @@ def run_bot_instance(logger: logging.Logger, stop_event: threading.Event, post_r
                     save_numbers(settings.NUMBERS_FILE, remaining_numbers)
                     continue
                 success = bot.send_message(number, message)
-
+                if number in remaining_numbers:
+                    remaining_numbers.remove(number)
                 if success:
-                    if number in remaining_numbers:
-                        remaining_numbers.remove(number)
+                    logger.info(f"Message sent successfully to {number}.")
                 else:
                     logger.warning(f"Could not send message to {number}. It will be retried next session.")
 

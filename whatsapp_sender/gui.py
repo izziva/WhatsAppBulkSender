@@ -177,6 +177,12 @@ class App(ctk.CTk):
         self._show_numbers_popup("Not WhatsApp Numbers", not_wa_numbers, file_path)
 
     def _load_numbers(self):
+        if not messagebox.askyesno(
+            "Confirm Load",
+            "Are you sure you want to load numbers from the database?\nThe current list will be overwritten."
+        ):
+            return
+
         try:
             numbers = _load_numbers_from_db()
             self.numbers_textbox.delete("1.0", "end")
@@ -225,6 +231,7 @@ class App(ctk.CTk):
         self.stop_button.configure(state="normal")
         self.message_textbox.configure(state="disabled")
         self.numbers_textbox.configure(state="disabled")
+        self.load_button.configure(state="disabled")
         self.stop_event.clear()
 
         self.bot_thread = threading.Thread(

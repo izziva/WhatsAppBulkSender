@@ -27,7 +27,7 @@ def get_failed_counts() -> tuple[int, int]:
 
     return failed_count, not_whatsapp_count
 
-def remove_emoji(text: str) -> str:
+def remove_emoji(text: str, placeholder: str = "[EMOJI]") -> str:
     """Removes emoji characters from a string and replaces them with a placeholder string."""
     emoji_pattern = re.compile(
         "["
@@ -38,7 +38,7 @@ def remove_emoji(text: str) -> str:
         "]+",
         flags=re.UNICODE,
     )
-    return emoji_pattern.sub(r'[EMOJI]', text)
+    return emoji_pattern.sub(placeholder, text)
 
 def wait_until_work_time() -> None:
     """Pauses script execution if outside of defined working hours."""

@@ -43,17 +43,15 @@ class WhatsAppBot:
     def _is_message_in_chat(self, message: str) -> bool:
         """Checks if a message with similar content is already in the chat history."""
         try:
-            # Pulisce e suddivide il messaggio in parti significative, ignorando emoji e virgolette.
-            clean_message = remove_emoji(message).strip()
+            clean_message = remove_emoji(message, "[EMOJI]").strip()
             parts = [p.strip() for p in re.split(r'\[EMOJI\]|"|\'|\n', clean_message) if p.strip()]
 
             if not parts:
                 return False
             
             xpath_conditions = " and ".join([f"contains(.,'{part}')" for part in parts])
-            xpath = f"//div[@role='row']//div/span/span[{xpath_conditions}]"
 
-            WebDriverWait(self.driver, timeout=5, poll_frequency=0.5).until( EC.presence_of_element_located((By.XPATH, xpath)) ).get_attribute("innerText")
+            WebDriverWait(self.driver, timeout=5, poll_frequency=0.5).until( EC.presence_of_element_located((By.XPATH, settings.MESSAGE_IN_CHAT_XPATH.format(conditions=xpath_conditions))) ).get_attribute("innerText")
             return True
         except TimeoutException:
             return False

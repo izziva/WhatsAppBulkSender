@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     FAILED_NUMBERS_FILE: str = os.path.join(CWD, "failed_numbers.txt")
     NOT_WAT_NUMBERS_FILE: str = os.path.join(CWD, "not_whatsapp_numbers.txt")
     DB_FILE: str = os.path.join(CWD, "archivio.mdb")
-    USER_DATA_DIR: str = os.path.join(CWD, "watsappProfile/")
+    USER_DATA_DIR: str = os.path.join(CWD, "whatsappProfile/")
     LIB_DIR: str = os.path.join(CWD, "lib")
 
     # --- Selenium Constants ---
@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     WORK_END_HOUR: int = 22
 
     QRCODE_XPATH: str = "//canvas[@aria-label='Scan me!']"
-    INVALID_NUMBER_XPATH: str = "//div[contains(text(), 'URL non valido')] | //div[contains(text(), 'numero di telefono non è su WhatsApp')]"
+    INVALID_NUMBER_XPATH: str = "//div[@role='dialog']//div/button//div[contains(text(),'OK')] | //div[contains(text(), 'numero di telefono non è su WhatsApp')]"
     SEND_BUTTON_XPATH: str = "//button[.//span[contains(@data-icon, 'send')]]"
-    MESSAGE_IN_CHAT_XPATH: str = "//span/span[contains(text(), '{text}')]" 
+    MESSAGE_IN_CHAT_XPATH: str = "//div[@role='row']//div/span/span[{conditions}]" 
 
 settings = Settings()

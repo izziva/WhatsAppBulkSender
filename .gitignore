@@ -176,7 +176,7 @@ cython_debug/
 
 .github/
 .vscode/
-watsappProfile/
+whatsappProfile/
 failed_numbers.txt
 message.txt
 numbers.txt
