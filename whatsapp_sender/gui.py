@@ -13,7 +13,9 @@ from whatsapp_sender.bot_wrapper import run_bot_instance
 from whatsapp_sender.utils import get_failed_counts
 from whatsapp_sender.config import settings
 
+
 class QueueHandler(logging.Handler):
+    """Custom handler to manage logs through a thread-safe queue"""
     def __init__(self, log_queue):
         super().__init__()
         self.log_queue = log_queue
@@ -21,132 +23,202 @@ class QueueHandler(logging.Handler):
     def emit(self, record):
         self.log_queue.put(self.format(record))
 
+
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
+        
+        # Initialize instance variables
         self.bot_thread = None
         self.stop_event = threading.Event()
+        self.log_queue = queue.Queue()
+        self.queue_handler = QueueHandler(self.log_queue)
+        
+        # Main window configuration
+        self._setup_main_window()
+        
+        # Create user interface
+        self._setup_context_menu()
+        self._create_numbers_frame()
+        self._create_message_frame()
+        self._create_log_frame()
+        self._create_button_frame()
+        
+        # Setup logging and initialization
+        self._setup_logging()
+        self._initialize_data()
+        
+        # Event handlers
+        self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
+    # ============================================================================
+    # INITIAL CONFIGURATION
+    # ============================================================================
+    
+    def _setup_main_window(self):
+        """Configure main window properties"""
         self.title("WhatsApp Sender")
         self.geometry("800x600")
-
+        self.minsize(400,500)
+        
+        # Main grid configuration
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(2, weight=1)
+        self.grid_rowconfigure(0, weight=0)  # numbers_frame fixed
+        self.grid_rowconfigure(1, weight=1)  # message_frame expandable
+        self.grid_rowconfigure(2, weight=0)  # log_frame fixed
+        self.grid_rowconfigure(3, weight=0)  # button_frame fixed
+
+    def _setup_context_menu(self):
+        """Configure context menu for text operations"""
         self.menu = Menu(self, tearoff=False)
         self.menu.add_command(label="Select All", command=self.select_all, accelerator="Ctrl+A")
-        self.bind('<Control-a>', lambda event: event.widget.event_generate("<<SelectAll>>"))
         self.menu.add_command(label="Copy", command=self.popup_copy, accelerator="Ctrl+C")
         self.menu.add_command(label="Cut", command=self.popup_cut, accelerator="Ctrl+X")
         self.menu.add_separator()
         self.menu.add_command(label="Paste", command=self.popup_paste, accelerator="Ctrl+V")
+        
+        # Event bindings
+        self.bind('<Control-a>', lambda event: event.widget.event_generate("<<SelectAll>>"))
         self.bind("<Button-3>", self.display_popup)
 
-        # Message frame
-        self.message_frame = ctk.CTkFrame(self)
-        self.message_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
-        self.message_frame.grid_columnconfigure(1, weight=1)
-        self.message_label = ctk.CTkLabel(self.message_frame, text="Message:")
-        self.message_label.grid(row=0, column=0, padx=10, pady=10)
-        self.message_textbox = ctk.CTkTextbox(self.message_frame, height=100)
-        self.message_textbox.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
-        self.message_textbox.insert("1.0", read_message(gui_mode=True))
-
-        # Numbers frame
-        self.numbers_frame = ctk.CTkFrame(self)
-        self.numbers_frame.grid(row=1, column=0, padx=10, pady=0, sticky="ew")
-        self.numbers_frame.grid_columnconfigure(1, weight=1)
-
-        self.numbers_label = ctk.CTkLabel(self.numbers_frame, text="Numbers:")
-        self.numbers_label.grid(row=0, column=0, padx=10, pady=10)
-
-        self.numbers_count_label = ctk.CTkLabel(self.numbers_frame, text="Count: 0")
-        self.numbers_count_label.grid(row=1, column=0, padx=10, pady=0)
-
-        self.failed_count_label = ctk.CTkLabel(self.numbers_frame, text="Failed: 0", cursor="hand2")
-        self.failed_count_label.grid(row=2, column=0, padx=10, pady=0)
-        self.failed_count_label.bind("<Button-1>", lambda e: self._show_failed_list())
-
-        self.not_whatsapp_count_label = ctk.CTkLabel(self.numbers_frame, text="Not WA: 0", cursor="hand2")
-        self.not_whatsapp_count_label.grid(row=3, column=0, padx=10, pady=0)
-        self.not_whatsapp_count_label.bind("<Button-1>", lambda e: self._show_not_wa_list())
-
-        self.numbers_textbox = ctk.CTkTextbox(self.numbers_frame, height=150)
-        self.numbers_textbox.grid(row=0, column=1, rowspan=4, padx=10, pady=10, sticky="nsew")
-        self.numbers_textbox.bind("<KeyRelease>", self._update_numbers_count)
-
-        numbers = read_numbers(settings.NUMBERS_FILE, gui_mode=True)
-        
-        for num in read_numbers(settings.NOT_WAT_NUMBERS_FILE, gui_mode=True):
-            while num in numbers:
-                numbers.remove(num)
-        self.numbers_textbox.insert("1.0", ", ".join(numbers))
-
-        # Log frame
-        self.log_frame = ctk.CTkFrame(self)
-        self.log_frame.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
-        self.log_frame.grid_columnconfigure(0, weight=1)
-        self.log_frame.grid_rowconfigure(0, weight=1)
-        self.log_textbox = ctk.CTkTextbox(self.log_frame, state="disabled")
-        self.log_textbox.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
-
-        # Button frame
-        self.button_frame = ctk.CTkFrame(self)
-        self.button_frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
-        self.button_frame.grid_columnconfigure((0, 1, 2), weight=1)
-        self.load_button = ctk.CTkButton(self.button_frame, text="Load Numbers from DB", command=self._load_numbers)
-        self.load_button.grid(row=0, column=0, padx=10, pady=10)
-        self.start_button = ctk.CTkButton(self.button_frame, text="Start Sending", command=self.start_bot)
-        self.start_button.grid(row=0, column=1, padx=10, pady=10)
-        self.stop_button = ctk.CTkButton(self.button_frame, text="Stop", fg_color="red", command=self.stop_bot, state="disabled")
-        self.stop_button.grid(row=0, column=2, padx=10, pady=10)
-
-        # Setup logging
-        self.log_queue = queue.Queue()
-        self.queue_handler = QueueHandler(self.log_queue)
+    def _setup_logging(self):
+        """Configure logging system"""
         logging.basicConfig(level=logging.INFO, handlers=[self.queue_handler])
         self.logger = logging.getLogger()
-
         self.after(100, self.process_log_queue)
+
+    def _initialize_data(self):
+        """Load initial data into the interface"""
+        # Load saved message
+        self.message_textbox.insert("1.0", read_message(gui_mode=True))
+        
+        # Load filtered numbers
+        numbers = read_numbers(settings.NUMBERS_FILE, gui_mode=True)
+        not_wa_numbers = read_numbers(settings.NOT_WAT_NUMBERS_FILE, gui_mode=True)
+        
+        # Remove non-WhatsApp numbers
+        for num in not_wa_numbers:
+            while num in numbers:
+                numbers.remove(num)
+        
+        self.numbers_textbox.insert("1.0", ", ".join(numbers))
+        
+        # Update counters
         self._update_numbers_count()
         self._update_failed_counts()
 
-        self.protocol("WM_DELETE_WINDOW", self._on_closing)
+    # ============================================================================
+    # USER INTERFACE CREATION
+    # ============================================================================
+    
+    def _create_message_frame(self):
+        """Create the message input frame"""
+        self.message_frame = ctk.CTkFrame(self)
+        self.message_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+        self.message_frame.grid_columnconfigure(1, weight=1)
+        self.message_frame.grid_rowconfigure(0, weight=1)
+        
+        self.message_label = ctk.CTkLabel(self.message_frame, text="Message:")
+        self.message_label.grid(row=0, column=0, padx=5, pady=10, sticky="nw")
+        
+        self.message_textbox = ctk.CTkTextbox(self.message_frame)
+        self.message_textbox.grid(row=0, column=1, padx=5, pady=10, sticky="nsew")
 
+    def _create_numbers_frame(self):
+        """Create the numbers management frame"""
+        self.numbers_frame = ctk.CTkFrame(self)
+        self.numbers_frame.grid(row=0, column=0, padx=10, pady=0, sticky="ew")
+        self.numbers_frame.grid_columnconfigure(1, weight=1)
 
+        # Statistics labels
+        self.numbers_label = ctk.CTkLabel(self.numbers_frame, text="Numbers:")
+        self.numbers_label.grid(row=0, column=0, padx=5, pady=5)
+
+        self.numbers_count_label = ctk.CTkLabel(self.numbers_frame, text="Count: 0")
+        self.numbers_count_label.grid(row=1, column=0, padx=5, pady=0)
+
+        self.failed_count_label = ctk.CTkLabel(self.numbers_frame, text="Failed: 0", cursor="hand2")
+        self.failed_count_label.grid(row=2, column=0, padx=5, pady=0)
+        self.failed_count_label.bind("<Button-1>", lambda e: self._show_failed_list())
+
+        self.not_whatsapp_count_label = ctk.CTkLabel(self.numbers_frame, text="Not WA: 0", cursor="hand2")
+        self.not_whatsapp_count_label.grid(row=3, column=0, padx=5, pady=0)
+        self.not_whatsapp_count_label.bind("<Button-1>", lambda e: self._show_not_wa_list())
+
+        # Numbers textbox
+        self.numbers_textbox = ctk.CTkTextbox(self.numbers_frame, height=100)
+        self.numbers_textbox.grid(row=0, column=1, rowspan=4, padx=5, pady=10, sticky="nsew")
+        self.numbers_textbox.bind("<KeyRelease>", self._update_numbers_count)
+
+    def _create_log_frame(self):
+        """Create the log frame with fixed size"""
+        self.log_frame = ctk.CTkFrame(self)
+        self.log_frame.grid(row=2, column=0, padx=10, pady=0, sticky="ew")
+        self.log_frame.grid_columnconfigure(0, weight=1)
+        self.log_frame.grid_rowconfigure(0, weight=1)
+        
+        self.log_textbox = ctk.CTkTextbox(self.log_frame, state="disabled", height=120)
+        self.log_textbox.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+
+    def _create_button_frame(self):
+        """Create the control buttons frame"""
+        self.button_frame = ctk.CTkFrame(self)
+        self.button_frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
+        self.button_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        
+        self.load_button = ctk.CTkButton(
+            self.button_frame, 
+            text="Load Numbers from DB", 
+            command=self._load_numbers
+        )
+        self.load_button.grid(row=0, column=0, padx=10, pady=10)
+        
+        self.start_button = ctk.CTkButton(
+            self.button_frame, 
+            text="Start Sending", 
+            command=self.start_bot
+        )
+        self.start_button.grid(row=0, column=1, padx=10, pady=10)
+        
+        self.stop_button = ctk.CTkButton(
+            self.button_frame, 
+            text="Stop", 
+            fg_color="red", 
+            command=self.stop_bot, 
+            state="disabled"
+        )
+        self.stop_button.grid(row=0, column=2, padx=10, pady=10)
+
+    # ============================================================================
+    # CONTEXT MENU MANAGEMENT
+    # ============================================================================
+    
     def display_popup(self, event):
+        """Display the context menu"""
         self.menu.post(event.x_root, event.y_root)
 
     def popup_copy(self):
+        """Copy selected text"""
         self.tk_focusPrev().event_generate("<<Copy>>")
 
     def popup_cut(self):
+        """Cut selected text"""
         self.tk_focusPrev().event_generate("<<Cut>>")
 
     def popup_paste(self):
+        """Paste text"""
         self.tk_focusPrev().event_generate("<<Paste>>")
     
     def select_all(self):
+        """Select all text"""
         self.tk_focusPrev().event_generate("<<SelectAll>>")
 
-
-    def _on_closing(self):
-        if self.bot_thread and self.bot_thread.is_alive():
-            if messagebox.askyesno("Exit", "Bot is still running. Do you want to stop it and exit?"):
-                self.stop_bot()
-                # Wait for the bot thread to finish before destroying the window
-                self.after(100, self._wait_for_bot_and_destroy)
-            else:
-                return # Do not close
-        else:
-            self.destroy()
-
-    def _wait_for_bot_and_destroy(self):
-        if self.bot_thread and self.bot_thread.is_alive():
-            self.after(100, self._wait_for_bot_and_destroy)
-        else:
-            self.destroy()
-
+    # ============================================================================
+    # POPUP WINDOWS MANAGEMENT
+    # ============================================================================
+    
     def _show_numbers_popup(self, title, numbers, file_path):
+        """Display a popup window with numbers list and management options"""
         if not numbers:
             messagebox.showinfo(title, "The list is empty.")
             return
@@ -155,35 +227,34 @@ class App(ctk.CTk):
         popup.title(title)
         popup.geometry("350x450")
         popup.transient(self)
-
         popup.grid_columnconfigure(0, weight=1)
         popup.grid_rowconfigure(0, weight=1)
 
+        # Numbers textbox
         textbox = ctk.CTkTextbox(popup)
         textbox.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
         textbox.insert("1.0", ", ".join(numbers))
         textbox.configure(state="disabled")
 
+        # Button frame
         button_frame = ctk.CTkFrame(popup, fg_color="transparent")
         button_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
         button_frame.grid_columnconfigure((0, 1, 2), weight=1)
 
+        # Event handlers
         def handle_clear():
             clear_file(file_path)
             self._update_failed_counts()
             popup.destroy()
 
         def handle_retry():
-            append_numbers_to_list(settings.NUMBERS_FILE,numbers)
+            append_numbers_to_list(settings.NUMBERS_FILE, numbers)
             clear_file(file_path)
             self._update_failed_counts()
-            # Refresh main numbers textbox
-            updated_main_numbers = read_numbers(settings.NUMBERS_FILE, gui_mode=True)
-            self.numbers_textbox.delete("1.0", "end")
-            self.numbers_textbox.insert("1.0", ", ".join(updated_main_numbers))
-            self._update_numbers_count()
+            self._refresh_main_numbers()
             popup.destroy()
 
+        # Buttons
         retry_button = ctk.CTkButton(button_frame, text="Retry All", command=handle_retry)
         retry_button.grid(row=0, column=0, padx=5, pady=5)
 
@@ -197,22 +268,31 @@ class App(ctk.CTk):
         popup.grab_set()
 
     def _show_failed_list(self):
-        if self.start_button._state== 'disabled':
+        """Display the failed numbers list"""
+        if self.start_button._state == 'disabled':
             messagebox.showinfo("Info", "Please stop the bot before viewing the failed list.")
             return
+        
         file_path = settings.FAILED_NUMBERS_FILE
         failed_numbers = read_numbers(file_path, gui_mode=True)
         self._show_numbers_popup("Failed Numbers", failed_numbers, file_path)
 
     def _show_not_wa_list(self):
+        """Display the non-WhatsApp numbers list"""
         if self.start_button._state == 'disabled':
             messagebox.showinfo("Info", "Please stop the bot before viewing the Not WhatsApp Numbers list.")
             return
+        
         file_path = settings.NOT_WAT_NUMBERS_FILE
         not_wa_numbers = read_numbers(file_path, gui_mode=True)
         self._show_numbers_popup("Not WhatsApp Numbers", not_wa_numbers, file_path)
 
+    # ============================================================================
+    # DATA OPERATIONS
+    # ============================================================================
+    
     def _load_numbers(self):
+        """Load numbers from database"""
         if not messagebox.askyesno(
             "Confirm Load",
             "Are you sure you want to load numbers from the database?\nThe current list will be overwritten."
@@ -228,17 +308,31 @@ class App(ctk.CTk):
         except Exception as e:
             self.logger.error(f"Failed to load numbers from DB: {e}")
 
+    def _refresh_main_numbers(self):
+        """Refresh the main textbox with numbers from file"""
+        updated_main_numbers = read_numbers(settings.NUMBERS_FILE, gui_mode=True)
+        self.numbers_textbox.delete("1.0", "end")
+        self.numbers_textbox.insert("1.0", ", ".join(updated_main_numbers))
+        self._update_numbers_count()
+
+    # ============================================================================
+    # INTERFACE UPDATE
+    # ============================================================================
+    
     def _update_numbers_count(self, event=None):
+        """Update the numbers count"""
         numbers_str = self.numbers_textbox.get("1.0", "end-1c")
         numbers = [n.strip() for n in re.split(r',|\n', numbers_str) if n.strip()]
         self.numbers_count_label.configure(text=f"Count: {len(numbers)}")
 
     def _update_failed_counts(self):
+        """Update the failed and non-WhatsApp numbers counters"""
         failed_count, not_whatsapp_count = get_failed_counts()
         self.failed_count_label.configure(text=f"Failed: {failed_count}")
         self.not_whatsapp_count_label.configure(text=f"Not WA: {not_whatsapp_count}")
 
     def process_log_queue(self):
+        """Process log messages from queue and display them"""
         try:
             while True:
                 record = self.log_queue.get_nowait()
@@ -248,23 +342,49 @@ class App(ctk.CTk):
                 self.log_textbox.see("end")
         except queue.Empty:
             pass
+        
         self.after(100, self.process_log_queue)
         self._update_failed_counts()
 
+    def update_gui_post_run(self):
+        """Update interface after bot termination"""
+        # Re-enable controls
+        self.start_button.configure(state="normal")
+        self.stop_button.configure(state="disabled")
+        self.message_textbox.configure(state="normal")
+        self.numbers_textbox.configure(state="normal")
+        self.load_button.configure(state="normal")
+
+        # Reload remaining numbers
+        self._refresh_main_numbers()
+
+    # ============================================================================
+    # BOT CONTROL
+    # ============================================================================
+    
     def start_bot(self):
+        """Start the bot for message sending"""
+        # Message validation
         message = self.message_textbox.get("1.0", "end-1c")
         if len(message) < 10:
             messagebox.showinfo("Warning", "Message must be at least 10 characters long.")
             return
 
+        # Numbers preparation
         numbers_str = self.numbers_textbox.get("1.0", "end-1c")
-        numbers: list[str] = [n.strip() for n in numbers_str.split(",") if n.strip()]
-        for num in read_numbers(settings.NOT_WAT_NUMBERS_FILE, gui_mode=True):
+        numbers = [n.strip() for n in numbers_str.split(",") if n.strip()]
+        
+        # Filter non-WhatsApp numbers
+        not_wa_numbers = read_numbers(settings.NOT_WAT_NUMBERS_FILE, gui_mode=True)
+        for num in not_wa_numbers:
             while num in numbers:
                 numbers.remove(num)
+
+        # Save data
         save_message(message)
         save_numbers(settings.NUMBERS_FILE, numbers)
 
+        # Disable controls
         self.start_button.configure(state="disabled")
         self.stop_button.configure(state="normal")
         self.message_textbox.configure(state="disabled")
@@ -272,8 +392,9 @@ class App(ctk.CTk):
         self.failed_count_label.configure(state="disabled")
         self.not_whatsapp_count_label.configure(state="disabled")
         self.load_button.configure(state="disabled")
+        
+        # Start bot
         self.stop_event.clear()
-
         self.bot_thread = threading.Thread(
             target=run_bot_instance,
             args=(self.logger, self.stop_event, lambda: self.after(0, self.update_gui_post_run))
@@ -281,22 +402,34 @@ class App(ctk.CTk):
         self.bot_thread.start()
 
     def stop_bot(self):
+        """Stop the bot"""
         self.stop_event.set()
         self.logger.info("Stop signal sent. Waiting for bot to finish current task...")
         self.stop_button.configure(state="disabled")
 
-    def update_gui_post_run(self):
-        self.start_button.configure(state="normal")
-        self.stop_button.configure(state="disabled")
-        self.message_textbox.configure(state="normal")
-        self.numbers_textbox.configure(state="normal")
-        self.load_button.configure(state="normal")
+    # ============================================================================
+    # CLOSING MANAGEMENT
+    # ============================================================================
+    
+    def _on_closing(self):
+        """Handle application closing"""
+        if self.bot_thread and self.bot_thread.is_alive():
+            if messagebox.askyesno("Exit", "Bot is still running. Do you want to stop it and exit?"):
+                self.stop_bot()
+                self.after(100, self._wait_for_bot_and_destroy)
+            else:
+                return
+        else:
+            self.destroy()
 
-        # Reload numbers to show remaining ones
-        remaining_numbers = read_numbers(settings.NUMBERS_FILE,gui_mode=True)
-        self.numbers_textbox.delete("1.0", "end")
-        self.numbers_textbox.insert("1.0", ", ".join(remaining_numbers))
-        self._update_numbers_count()
+    def _wait_for_bot_and_destroy(self):
+        """Wait for bot termination before closing"""
+        if self.bot_thread and self.bot_thread.is_alive():
+            self.after(100, self._wait_for_bot_and_destroy)
+        else:
+            self.destroy()
+
+
 if __name__ == '__main__':
     app = App()
     app.mainloop()
