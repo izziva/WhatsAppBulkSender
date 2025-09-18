@@ -16,17 +16,18 @@ class Settings(BaseSettings):
     LIB_DIR: str = os.path.join(CWD, "lib")
 
     # --- Selenium Constants ---
-    DEFAULT_TIMEOUT: int = 16
-    LOGIN_TIMEOUT: int = 60
+    DEFAULT_TIMEOUT: int = 20
+    CHECK_NUMBER_TIMEOUT: int = 10
+    LOGIN_TIMEOUT: int = 80
 
     # --- Operational Constants ---
-    USE_WORK_HOUR_BLOCK: bool = False 
+    USE_WORK_HOUR_BLOCK: bool = True 
     WORK_START_HOUR: int = 9
     WORK_END_HOUR: int = 22
 
     QRCODE_XPATH: str = "//canvas[@aria-label='Scan me!']"
     INVALID_NUMBER_XPATH: str = "//div[@role='dialog']//div/button//div[contains(text(),'OK')] | //div[contains(text(), 'numero di telefono non è su WhatsApp')]"
     SEND_BUTTON_XPATH: str = "//button[.//span[contains(@data-icon, 'send')]]"
-    MESSAGE_IN_CHAT_XPATH: str = "//div[@role='row']//div/span/span[{conditions}]" 
+    MESSAGE_IN_CHAT_XPATH: str = "//div[@role='row']//div/span[{conditions}]" 
 
 settings = Settings()

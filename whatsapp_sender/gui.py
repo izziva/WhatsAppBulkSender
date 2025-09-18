@@ -3,10 +3,11 @@ import logging
 import queue
 import threading
 import re
-from tkinter import messagebox
+from tkinter import messagebox, Menu
+
 from whatsapp_sender.data_manager import (
     read_message, read_numbers, save_message, save_numbers, 
-    _load_numbers_from_db, clear_file, append_numbers_to_main_list
+    _load_numbers_from_db, clear_file, append_numbers_to_list
 )
 from whatsapp_sender.bot_wrapper import run_bot_instance
 from whatsapp_sender.utils import get_failed_counts
@@ -31,6 +32,14 @@ class App(ctk.CTk):
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
+        self.menu = Menu(self, tearoff=False)
+        self.menu.add_command(label="Select All", command=self.select_all, accelerator="Ctrl+A")
+        self.bind('<Control-a>', lambda event: event.widget.event_generate("<<SelectAll>>"))
+        self.menu.add_command(label="Copy", command=self.popup_copy, accelerator="Ctrl+C")
+        self.menu.add_command(label="Cut", command=self.popup_cut, accelerator="Ctrl+X")
+        self.menu.add_separator()
+        self.menu.add_command(label="Paste", command=self.popup_paste, accelerator="Ctrl+V")
+        self.bind("<Button-3>", self.display_popup)
 
         # Message frame
         self.message_frame = ctk.CTkFrame(self)
@@ -66,6 +75,10 @@ class App(ctk.CTk):
         self.numbers_textbox.bind("<KeyRelease>", self._update_numbers_count)
 
         numbers = read_numbers(settings.NUMBERS_FILE, gui_mode=True)
+        
+        for num in read_numbers(settings.NOT_WAT_NUMBERS_FILE, gui_mode=True):
+            while num in numbers:
+                numbers.remove(num)
         self.numbers_textbox.insert("1.0", ", ".join(numbers))
 
         # Log frame
@@ -73,7 +86,7 @@ class App(ctk.CTk):
         self.log_frame.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
         self.log_frame.grid_columnconfigure(0, weight=1)
         self.log_frame.grid_rowconfigure(0, weight=1)
-        self.log_textbox = ctk.CTkTextbox(self.log_frame, state="disabled", text_color="white")
+        self.log_textbox = ctk.CTkTextbox(self.log_frame, state="disabled")
         self.log_textbox.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
         # Button frame
@@ -98,6 +111,23 @@ class App(ctk.CTk):
         self._update_failed_counts()
 
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
+
+
+    def display_popup(self, event):
+        self.menu.post(event.x_root, event.y_root)
+
+    def popup_copy(self):
+        self.tk_focusPrev().event_generate("<<Copy>>")
+
+    def popup_cut(self):
+        self.tk_focusPrev().event_generate("<<Cut>>")
+
+    def popup_paste(self):
+        self.tk_focusPrev().event_generate("<<Paste>>")
+    
+    def select_all(self):
+        self.tk_focusPrev().event_generate("<<SelectAll>>")
+
 
     def _on_closing(self):
         if self.bot_thread and self.bot_thread.is_alive():
@@ -144,7 +174,7 @@ class App(ctk.CTk):
             popup.destroy()
 
         def handle_retry():
-            append_numbers_to_main_list(numbers)
+            append_numbers_to_list(settings.NUMBERS_FILE,numbers)
             clear_file(file_path)
             self._update_failed_counts()
             # Refresh main numbers textbox
@@ -167,11 +197,17 @@ class App(ctk.CTk):
         popup.grab_set()
 
     def _show_failed_list(self):
+        if self.start_button._state== 'disabled':
+            messagebox.showinfo("Info", "Please stop the bot before viewing the failed list.")
+            return
         file_path = settings.FAILED_NUMBERS_FILE
         failed_numbers = read_numbers(file_path, gui_mode=True)
         self._show_numbers_popup("Failed Numbers", failed_numbers, file_path)
 
     def _show_not_wa_list(self):
+        if self.start_button._state == 'disabled':
+            messagebox.showinfo("Info", "Please stop the bot before viewing the Not WhatsApp Numbers list.")
+            return
         file_path = settings.NOT_WAT_NUMBERS_FILE
         not_wa_numbers = read_numbers(file_path, gui_mode=True)
         self._show_numbers_popup("Not WhatsApp Numbers", not_wa_numbers, file_path)
@@ -223,7 +259,9 @@ class App(ctk.CTk):
 
         numbers_str = self.numbers_textbox.get("1.0", "end-1c")
         numbers: list[str] = [n.strip() for n in numbers_str.split(",") if n.strip()]
-
+        for num in read_numbers(settings.NOT_WAT_NUMBERS_FILE, gui_mode=True):
+            while num in numbers:
+                numbers.remove(num)
         save_message(message)
         save_numbers(settings.NUMBERS_FILE, numbers)
 
@@ -231,6 +269,8 @@ class App(ctk.CTk):
         self.stop_button.configure(state="normal")
         self.message_textbox.configure(state="disabled")
         self.numbers_textbox.configure(state="disabled")
+        self.failed_count_label.configure(state="disabled")
+        self.not_whatsapp_count_label.configure(state="disabled")
         self.load_button.configure(state="disabled")
         self.stop_event.clear()
 
@@ -256,7 +296,7 @@ class App(ctk.CTk):
         remaining_numbers = read_numbers(settings.NUMBERS_FILE,gui_mode=True)
         self.numbers_textbox.delete("1.0", "end")
         self.numbers_textbox.insert("1.0", ", ".join(remaining_numbers))
-
+        self._update_numbers_count()
 if __name__ == '__main__':
     app = App()
     app.mainloop()

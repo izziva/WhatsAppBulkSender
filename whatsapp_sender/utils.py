@@ -1,8 +1,10 @@
 import re
+from logging import Logger
 from whatsapp_sender.config import settings
 import datetime
 from time import sleep
 from rich import print
+from threading import Event
 from whatsapp_sender.data_manager import read_numbers
 
 def get_failed_counts() -> tuple[int, int]:
@@ -40,15 +42,18 @@ def remove_emoji(text: str, placeholder: str = "[EMOJI]") -> str:
     )
     return emoji_pattern.sub(placeholder, text)
 
-def wait_until_work_time() -> None:
+def wait_until_work_time(stop_event: Event, logger:Logger) -> None:
     """Pauses script execution if outside of defined working hours."""
     if not settings.USE_WORK_HOUR_BLOCK:
         return
     now = datetime.datetime.now()
     while now.hour >= settings.WORK_END_HOUR or now.hour < settings.WORK_START_HOUR:
-        print(
-            f"[red]It is not allowed to send messages after {settings.WORK_END_HOUR}:00 and before {settings.WORK_START_HOUR}:00. "
-            "Waiting for unlock...[/red]"
+        if stop_event is not None and stop_event.is_set():
+             break
+
+        logger.warning(
+            f"It is not allowed to send messages after {settings.WORK_END_HOUR}:00 and before {settings.WORK_START_HOUR}:00. "
+            "Waiting for unlock..."
         )
         sleep(600)
         now = datetime.datetime.now()
@@ -63,7 +68,7 @@ def add_country_code(number: str) -> str:
     elif number.startswith("00"):
         return "+" + number[2:]
     else:
-        print(f"[yellow]Number '{number}' seems to be in a local format. Adding +39 prefix.[/yellow]")
+        print(f"Number '{number}' seems to be in a local format. Adding +39 prefix.")
         return "+39" + number
 
 

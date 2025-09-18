@@ -13,7 +13,7 @@ from rich.prompt import Prompt
 import re
 from whatsapp_sender.config import settings
 from whatsapp_sender.utils import add_country_code, remove_emoji
-from whatsapp_sender.data_manager import save_numbers
+from whatsapp_sender.data_manager import append_numbers_to_list
 
 class WhatsAppBot:
     """A class to automate sending messages on WhatsApp Web."""
@@ -32,7 +32,7 @@ class WhatsAppBot:
     def _check_number_invalid(self, number: str) -> bool:
         """Checks if WhatsApp shows an 'invalid number' dialog and saves it."""
         try:
-            WebDriverWait(self.driver, timeout=5, poll_frequency=0.5).until(
+            WebDriverWait(self.driver, timeout=settings.CHECK_NUMBER_TIMEOUT, poll_frequency=0.5).until(
                 EC.presence_of_element_located((By.XPATH, settings.INVALID_NUMBER_XPATH))
             )
             self.logger.warning(f"Number {number} not registered on WhatsApp. Saving to specific failed list.")
@@ -51,7 +51,7 @@ class WhatsAppBot:
             
             xpath_conditions = " and ".join([f"contains(.,'{part}')" for part in parts])
 
-            WebDriverWait(self.driver, timeout=5, poll_frequency=0.5).until( EC.presence_of_element_located((By.XPATH, settings.MESSAGE_IN_CHAT_XPATH.format(conditions=xpath_conditions))) ).get_attribute("innerText")
+            WebDriverWait(self.driver, timeout=settings.CHECK_NUMBER_TIMEOUT, poll_frequency=0.5).until( EC.presence_of_element_located((By.XPATH, settings.MESSAGE_IN_CHAT_XPATH.format(conditions=xpath_conditions))) ).get_attribute("innerText")
             return True
         except TimeoutException:
             return False
@@ -107,7 +107,7 @@ class WhatsAppBot:
             self.driver.get(url)
 
             if self._check_number_invalid(number):
-                save_numbers(settings.NOT_WAT_NUMBERS_FILE, [number])
+                append_numbers_to_list(settings.NOT_WAT_NUMBERS_FILE, [number])
                 return False
 
             if self._is_message_in_chat(message):
@@ -138,7 +138,7 @@ class WhatsAppBot:
         
         if not sent:
             self.logger.error(f"Failed to send message to {number} after all attempts.")
-            save_numbers(settings.FAILED_NUMBERS_FILE, [number])
+            append_numbers_to_list(settings.FAILED_NUMBERS_FILE, [number])
 
         return sent
 

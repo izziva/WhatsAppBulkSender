@@ -1,6 +1,6 @@
 import logging
 import threading
-from whatsapp_sender.data_manager import read_message, read_numbers, save_numbers,check_number_invalid
+from whatsapp_sender.data_manager import read_message, read_numbers, save_numbers,check_number_invalid,append_numbers_to_list
 from whatsapp_sender.driver_utils import create_driver
 from whatsapp_sender.bot import WhatsAppBot
 from whatsapp_sender.utils import wait_until_work_time
@@ -40,13 +40,13 @@ def run_bot_instance(logger: logging.Logger, stop_event: threading.Event, post_r
                     logger.info("Stop signal received. Halting message sending.")
                     break
 
-                wait_until_work_time()
+                wait_until_work_time(stop_event,logger)
                 if stop_event.is_set(): break
 
                 logger.info(f"Processing {idx + 1}/{total_numbers}: {number}")
                 if check_number_invalid(number):
                     logger.warning(f"Number {number} is invalid. Saving to not WhatsApp numbers list.")
-                    save_numbers(settings.NOT_WAT_NUMBERS_FILE, [number])
+                    append_numbers_to_list(settings.NOT_WAT_NUMBERS_FILE, [number])
                     if number in remaining_numbers:
                         remaining_numbers.remove(number)
                     save_numbers(settings.NUMBERS_FILE, remaining_numbers)
