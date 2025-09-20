@@ -12,9 +12,10 @@ dependencies = [
     "urllib3",
     "websocket-client",
     "typing-extensions",
-    "requests",
+    "httpx",
     "python-dotenv",
     "pydantic-settings",
+    "packaging",
 ]
 
 [build-system]

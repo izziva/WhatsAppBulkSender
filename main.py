@@ -75,6 +75,9 @@ def run_gui():
     app.mainloop()
 
 
+from whatsapp_sender import __version__
+from whatsapp_sender.updater import check_for_updates
+
 def main():
     """Main function to parse arguments and run the bot."""
     parser = argparse.ArgumentParser(description="WhatsApp Automation Tool")
@@ -85,7 +88,11 @@ def main():
     )
     args = parser.parse_args()
 
+    # Check for updates
+    check_for_updates(__version__, gui_mode=not args.nogui)
+
     if args.nogui:
+
         run_cli()
     else:
         run_gui()
