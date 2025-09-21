@@ -33,7 +33,7 @@ jobs:
     - name: Run PyInstaller
       shell: bash
       run: |
-        PYINSTALLER_ARGS="main.py --name whatsapp_sender --onefile --clean --hidden-import jpype --hidden-import PIL._tkinter_finder"
+        PYINSTALLER_ARGS="main.py --name whatsapp_sender --onefile --noconsole --clean --hidden-import jpype --hidden-import PIL._tkinter_finder"
         if [ "${{ runner.os }}" == "macOS" ]; then
           pyinstaller --windowed $PYINSTALLER_ARGS
         else
