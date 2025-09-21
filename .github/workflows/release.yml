@@ -1,0 +1,97 @@
+name: Create Release and Build Executables
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build_executables:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -e .
+        pip install pyinstaller
+
+    - name: Run PyInstaller
+      shell: bash
+      run: |
+        PYINSTALLER_ARGS="main.py --name whatsapp_sender --onefile --clean --hidden-import jpype --hidden-import PIL._tkinter_finder"
+        if [ "${{ runner.os }}" == "macOS" ]; then
+          pyinstaller --windowed $PYINSTALLER_ARGS
+        else
+          pyinstaller $PYINSTALLER_ARGS
+        fi
+
+    - name: Prepare Windows artifact
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        mv dist/whatsapp_sender.exe whatsapp_sender-windows.exe
+        ls -la whatsapp_sender-windows.exe
+
+    - name: Prepare macOS artifact
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        zip -r whatsapp_sender-macos.zip dist/whatsapp_sender.app
+        ls -la whatsapp_sender-macos.zip
+
+    - name: Upload Windows artifact
+      if: runner.os == 'Windows'
+      uses: actions/upload-artifact@v4
+      with:
+        name: executable-Windows
+        path: whatsapp_sender-windows.exe
+
+    - name: Upload macOS artifact
+      if: runner.os == 'macOS'
+      uses: actions/upload-artifact@v4
+      with:
+        name: executable-macOS
+        path: whatsapp_sender-macos.zip
+
+  create_release:
+    name: Create GitHub Release
+    needs: build_executables
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: release_assets
+
+    - name: Move files to root
+      shell: bash
+      run: |
+        find release_assets -name "*.exe" -exec cp {} release_assets/ \;
+        find release_assets -name "*.zip" -exec cp {} release_assets/ \;
+        find release_assets -maxdepth 1 -type d -not -path release_assets -exec rm -rf {} \;
+
+    - name: List files for release
+      run: ls -la release_assets/
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: release_assets/*
+        fail_on_unmatched_files: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
