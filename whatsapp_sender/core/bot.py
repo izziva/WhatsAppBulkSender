@@ -11,9 +11,9 @@ import random
 from rich import print
 from rich.prompt import Prompt
 import re
-from whatsapp_sender.config import settings
-from whatsapp_sender.utils import add_country_code, remove_emoji
-from whatsapp_sender.data_manager import append_numbers_to_list
+from whatsapp_sender.core.config import settings
+from whatsapp_sender.utils.common_utils import add_country_code, remove_emoji
+from whatsapp_sender.provider.data_manager import append_numbers_to_list
 
 class WhatsAppBot:
     """A class to automate sending messages on WhatsApp Web."""
@@ -61,17 +61,17 @@ class WhatsAppBot:
         self.driver.get('https://web.whatsapp.com')
         self.logger.info("Please scan the QR code to log in to WhatsApp Web (if required)...")
         try:
-            # Attendi che il QR code appaia, con un timeout breve
+            # Wait for the QR code to appear, with a short timeout
             qr_element = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, settings.QRCODE_XPATH))
             )
             self.logger.info("Waiting for you to scan the QR code...")
-            # Attendi che il QR code scompaia (scansionato o timeout lungo)
+            # Wait for the QR code to disappear (scanned or long timeout)
             WebDriverWait(self.driver, timeout=settings.LOGIN_TIMEOUT).until(
                 EC.staleness_of(qr_element)
             )
         except TimeoutException:
-            # Se il QR code non appare o non scompare, potrebbe essere già loggato o c'è un problema
+            # If the QR code doesn't appear or disappear, it might be already logged in or there's an issue
             self.logger.info("QR code not detected or login timeout. Assuming already logged in.")
             pass
 
@@ -83,7 +83,7 @@ class WhatsAppBot:
             self.logger.info("WhatsApp Web loaded successfully.")
         except TimeoutException:
             self.logger.error("Failed to load WhatsApp main page. Please check your connection or log in manually.")
-            # Potrebbe essere utile sollevare un'eccezione qui o chiudere
+            # It might be useful to raise an exception here or close
             return
 
 

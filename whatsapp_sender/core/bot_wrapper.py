@@ -1,10 +1,10 @@
 import logging
 import threading
-from whatsapp_sender.data_manager import read_message, read_numbers, save_numbers,check_number_invalid,append_numbers_to_list
-from whatsapp_sender.driver_utils import create_driver
-from whatsapp_sender.bot import WhatsAppBot
-from whatsapp_sender.utils import wait_until_work_time
-from whatsapp_sender.config import settings
+from whatsapp_sender.provider.data_manager import read_message, read_numbers, save_numbers,check_number_invalid,append_numbers_to_list
+from whatsapp_sender.utils.driver_utils import create_driver
+from whatsapp_sender.core.bot import WhatsAppBot
+from whatsapp_sender.utils.common_utils import wait_until_work_time
+from whatsapp_sender.core.config import settings
 
 def run_bot_instance(logger: logging.Logger, stop_event: threading.Event, post_run_callback: callable):
     """

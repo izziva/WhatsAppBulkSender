@@ -117,7 +117,11 @@ def apply_windows_update(temp_path):
         f.write(script_content)
 
     # Launch the script and exit
-    subprocess.Popen([update_script_path], creationflags=subprocess.CREATE_NEW_CONSOLE)
+    creation_flags = 0
+    if platform.system() == "Windows":
+        creation_flags = subprocess.CREATE_NEW_CONSOLE
+
+    subprocess.Popen([update_script_path], creationflags=creation_flags)
     sys.exit(0)
 
 def apply_macos_update(zip_path):

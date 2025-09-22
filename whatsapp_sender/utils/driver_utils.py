@@ -4,7 +4,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
-from whatsapp_sender.config import settings
+from whatsapp_sender.core.config import settings
 
 def create_driver() -> webdriver.Chrome:
     """Initializes and returns a configured Selenium Chrome WebDriver."""
