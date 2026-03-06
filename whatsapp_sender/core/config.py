@@ -39,6 +39,6 @@ class Settings(BaseSettings):
     QRCODE_XPATH: str = "//canvas[@aria-label='Scan me!']"
     INVALID_NUMBER_XPATH: str = "//div[@role='dialog']//div/button//div[contains(text(),'OK')] | //div[contains(text(), 'numero di telefono non è su WhatsApp')]"
     SEND_BUTTON_XPATH: str = "//button[.//span[contains(@data-icon, 'send')]]"
-    MESSAGE_IN_CHAT_XPATH: str = "//div[@role='row']//div/span[{conditions}]" 
+    MESSAGE_IN_CHAT_XPATH: str = "//div[@class='copyable-text']/div/span/span[{conditions}]" 
 
 settings = Settings()
