@@ -1,11 +1,11 @@
 import re
 from logging import Logger
-from whatsapp_sender.config import settings
+from whatsapp_sender.core.config import settings
 import datetime
 from time import sleep
 from rich import print
 from threading import Event
-from whatsapp_sender.data_manager import read_numbers
+from whatsapp_sender.provider.data_manager import read_numbers
 
 def get_failed_counts() -> tuple[int, int]:
     """
@@ -59,7 +59,7 @@ def wait_until_work_time(stop_event: Event, logger:Logger) -> None:
         now = datetime.datetime.now()
 
 def add_country_code(number: str) -> str:
-    """Formats a phone number to include the Italian country code +39."""
+    """Formats a phone number to include a default country code."""
     number = number.strip()
     if number.startswith("+"):
         return number

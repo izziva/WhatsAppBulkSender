@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 from rich import print
 from rich.prompt import Prompt
-from whatsapp_sender.config import settings
+from whatsapp_sender.core.config import settings
 
 def _load_numbers_from_db() -> list[str]:
     """Loads phone numbers from an Access (.mdb) database file."""
@@ -119,18 +119,18 @@ def save_numbers(pathFile: str, numbers: list[str]) -> None:
             f.write(f"{number}\n")
 
 def clear_file(file_path: str):
-    """Svuota il contenuto di un file."""
+    """Clears the content of a file."""
     with open(file_path, "w") as f:
         pass
 
 def append_numbers_to_list(pathFile: str,numbers_to_add: list[str]):
-    """Aggiunge numeri alla lista principale, evitando duplicati."""
+    """Appends numbers to the main list, avoiding duplicates."""
     if not numbers_to_add:
         return
     
     main_numbers = read_numbers(pathFile, gui_mode=True)
     
-    # Aggiungi solo numeri non già presenti per evitare duplicati
+    # Add only numbers that are not already present to avoid duplicates
     unique_new_numbers = [num for num in numbers_to_add if num not in main_numbers]
     
     if not unique_new_numbers:

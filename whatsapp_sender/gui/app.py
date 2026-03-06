@@ -5,13 +5,13 @@ import threading
 import re
 from tkinter import messagebox, Menu
 
-from whatsapp_sender.data_manager import (
-    read_message, read_numbers, save_message, save_numbers, 
+from whatsapp_sender.provider.data_manager import (
+    read_message, read_numbers, save_message, save_numbers,
     _load_numbers_from_db, clear_file, append_numbers_to_list
 )
-from whatsapp_sender.bot_wrapper import run_bot_instance
-from whatsapp_sender.utils import get_failed_counts
-from whatsapp_sender.config import settings
+from whatsapp_sender.core.bot_wrapper import run_bot_instance
+from whatsapp_sender.utils.common_utils import get_failed_counts
+from whatsapp_sender.core.config import settings
 
 
 class QueueHandler(logging.Handler):
