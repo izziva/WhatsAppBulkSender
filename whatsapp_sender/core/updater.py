@@ -98,30 +98,40 @@ def download_and_apply_update(release_info):
         print(f"[red]An unexpected error occurred during download: {e}[/red]")
 
 def apply_windows_update(temp_path):
-    """Applies the update on Windows using a helper script."""
+    """Applies the update on Windows using a fully detached helper script."""
     executable_path = sys.executable
     update_script_path = os.path.join(os.path.dirname(executable_path), "update.bat")
 
-    script_content = f"""
-    @echo off
-    echo Waiting for application to close...
-    timeout /t 3 /nobreak
-    echo Replacing executable...
-    move /y "{temp_path}" "{executable_path}"
-    echo Update complete. Starting new version...
-    start "" "{executable_path}"
-    del "{update_script_path}"
-    """
+    script_content = (
+        "@echo off\n"
+        "echo Waiting for application to close...\n"
+        "timeout /t 3 /nobreak\n"
+        "echo Replacing executable...\n"
+        f'move /y "{temp_path}" "{executable_path}"\n'
+        "echo Update complete. Starting new version...\n"
+        f'start \"\" "{executable_path}"\n'
+        f'del "{update_script_path}"\n'
+    )
 
     with open(update_script_path, "w") as f:
         f.write(script_content)
 
-    # Launch the script and exit
-    creation_flags = 0
-    if platform.system() == "Windows":
-        creation_flags = subprocess.CREATE_NEW_CONSOLE
+    # DETACHED_PROCESS: removes the child from the parent's console/job object
+    # CREATE_NEW_PROCESS_GROUP: gives the child its own process group so it
+    # is not terminated when the Python parent exits.
+    creation_flags = (
+        subprocess.DETACHED_PROCESS
+        | subprocess.CREATE_NEW_PROCESS_GROUP
+    )
 
-    subprocess.Popen([update_script_path], creationflags=creation_flags)
+    subprocess.Popen(
+        ["cmd.exe", "/C", update_script_path],
+        creationflags=creation_flags,
+        close_fds=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     sys.exit(0)
 
 def apply_macos_update(zip_path):
