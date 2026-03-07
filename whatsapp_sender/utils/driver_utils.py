@@ -1,12 +1,12 @@
 import os
 from rich import print
-from selenium import webdriver
+from selenium.webdriver.chrome.webdriver import WebDriver as Chrome
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from whatsapp_sender.core.config import settings
 
-def create_driver() -> webdriver.Chrome:
+def create_driver() -> Chrome:
     """Initializes and returns a configured Selenium Chrome WebDriver."""
     options = Options()
     # Suppress webdriver manager logs
@@ -26,7 +26,7 @@ def create_driver() -> webdriver.Chrome:
     # Use a try-except block for robustness in service creation
     try:
         service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=options)
+        driver = Chrome(service=service, options=options)
     except Exception as e:
         print(f"[bold red]Error creating WebDriver: {e}[/bold red]")
         # Fallback or specific error handling can be added here
