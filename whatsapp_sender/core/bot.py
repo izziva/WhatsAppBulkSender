@@ -122,7 +122,7 @@ class WhatsAppBot:
                 if self._is_message_in_chat(message):
                     self.logger.info(f"Message sent successfully to {number}.")
                     sent = True
-                    sleep(random.randint(5, 15))
+                    sleep(random.randint(9, 20))
                     break
                 else:
                     raise Exception("Message not found in chat after sending.")
@@ -134,7 +134,7 @@ class WhatsAppBot:
                 if self.stop_event.is_set():
                     self.logger.info("Stop signal received, aborting retries.")
                     break
-                sleep(3)
+                sleep(random.randint(6, 15))
         
         if not sent:
             self.logger.error(f"Failed to send message to {number} after all attempts.")
